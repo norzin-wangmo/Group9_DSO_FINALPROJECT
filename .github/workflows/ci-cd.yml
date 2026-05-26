@@ -22,7 +22,6 @@ jobs:
           - name: Group_9_1SWE_WEB_Project_SS2026
             project: Group_9_1SWE_WEB_Project_SS2026/EasyBuy
             lock: Group_9_1SWE_WEB_Project_SS2026/EasyBuy/Backend/package-lock.json
-    if: ${{ hashFiles(matrix.lock) != '' }}
     defaults:
       run:
         working-directory: ${{ matrix.project }}/Backend
@@ -63,7 +62,6 @@ jobs:
           - name: Group_9_1SWE_WEB_Project_SS2026
             project: Group_9_1SWE_WEB_Project_SS2026/EasyBuy
             lock: Group_9_1SWE_WEB_Project_SS2026/EasyBuy/Frontend/package-lock.json
-    if: ${{ hashFiles(matrix.lock) != '' }}
     defaults:
       run:
         working-directory: ${{ matrix.project }}/Frontend
