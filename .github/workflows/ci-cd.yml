@@ -1,0 +1,95 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  backend-checks:
+    name: Backend - Install & Prisma validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Group_9
+            project: Group_9/EasyBuy
+            lock: Group_9/EasyBuy/Backend/package-lock.json
+          - name: Group_9_1SWE_WEB_Project_SS2026
+            project: Group_9_1SWE_WEB_Project_SS2026/EasyBuy
+            lock: Group_9_1SWE_WEB_Project_SS2026/EasyBuy/Backend/package-lock.json
+    if: ${{ hashFiles(matrix.lock) != '' }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.project }}/Backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ matrix.lock }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma validate
+        run: npx prisma validate
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Node syntax check
+        run: node -c src/server.js
+
+  frontend-checks:
+    name: Frontend - Install, lint, build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Group_9
+            project: Group_9/EasyBuy
+            lock: Group_9/EasyBuy/Frontend/package-lock.json
+          - name: Group_9_1SWE_WEB_Project_SS2026
+            project: Group_9_1SWE_WEB_Project_SS2026/EasyBuy
+            lock: Group_9_1SWE_WEB_Project_SS2026/EasyBuy/Frontend/package-lock.json
+    if: ${{ hashFiles(matrix.lock) != '' }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.project }}/Frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ matrix.lock }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (non-blocking)
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: https://group-9-1swe-web-project-ss2026-backend.onrender.com/api
+          NEXT_PUBLIC_SOCKET_URL: https://group-9-1swe-web-project-ss2026-backend.onrender.com
+          DOCKER_BUILD: 1
+
