@@ -36,6 +36,10 @@ jobs:
 
       - name: Backend install & validate
         working-directory: easybuy/EasyBuy/Backend
+        env:
+          # Prisma validate requires DATABASE_URL at config-load time.
+          # This is a dummy URL for CI lint/validate only (no DB connection).
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/easybuy_ci?schema=public
         run: |
           set -euo pipefail
           npm ci
