@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
 
 jobs:
   backend-checks:
@@ -25,13 +25,18 @@ jobs:
           submodules: false
           persist-credentials: false
           clean: false
+          set-safe-directory: true
+
+      - name: Mark workspace as safe (git)
+        shell: bash
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: '**/package-lock.json'
+          # Keep CI stable first; enable caching after paths are verified
+          cache: ''
 
       - name: Run backend checks (auto-detect project path)
         shell: bash
@@ -78,13 +83,18 @@ jobs:
           submodules: false
           persist-credentials: false
           clean: false
+          set-safe-directory: true
+
+      - name: Mark workspace as safe (git)
+        shell: bash
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: '**/package-lock.json'
+          # Keep CI stable first; enable caching after paths are verified
+          cache: ''
 
       - name: Run frontend checks (auto-detect project path)
         shell: bash
