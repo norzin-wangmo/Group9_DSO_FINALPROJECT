@@ -1,5 +1,9 @@
 name: CI/CD Pipeline
 
+# Do NOT use actions/checkout here. The repo has a broken Group_9 submodule
+# (gitlink without a URL in .gitmodules), which makes checkout fail with:
+# "fatal: No url found for submodule path 'Group_9' in .gitmodules"
+
 on:
   push:
   pull_request:
@@ -10,6 +14,8 @@ permissions:
 
 env:
   NODE_VERSION: '22'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  EASYBUY_REPO: https://github.com/norzin-wangmo/Group_9_1SWE_WEB_Project_SS2026.git
 
 jobs:
   backend-checks:
@@ -17,117 +23,50 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          lfs: false
-          submodules: false
-          persist-credentials: false
-          clean: false
-          set-safe-directory: true
-
-      - name: Mark workspace as safe (git)
+      - name: Clone EasyBuy source (no submodules)
         shell: bash
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --no-recurse-submodules "$EASYBUY_REPO" easybuy
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          # Keep CI stable first; enable caching after paths are verified
-          cache: ''
 
-      - name: Run backend checks (auto-detect project path)
-        shell: bash
+      - name: Backend install & validate
+        working-directory: easybuy/EasyBuy/Backend
         run: |
           set -euo pipefail
-          projects=(
-            "Group_9/EasyBuy"
-            "Group_9_1SWE_WEB_Project_SS2026/EasyBuy"
-          )
-
-          found_any=0
-          for project in "${projects[@]}"; do
-            if [[ -f "${project}/Backend/package.json" ]]; then
-              found_any=1
-              echo "== Backend checks: ${project}"
-              pushd "${project}/Backend" >/dev/null
-              npm ci
-              npx prisma validate
-              npx prisma generate
-              node -c src/server.js
-              popd >/dev/null
-            else
-              echo "Skipping backend: ${project} (Backend/package.json not found)"
-            fi
-          done
-
-          if [[ "${found_any}" -eq 0 ]]; then
-            echo "No EasyBuy backend found in expected paths."
-            echo "Expected one of:"
-            printf ' - %s\n' "${projects[@]}"
-            exit 1
-          fi
+          npm ci
+          npx prisma validate
+          npx prisma generate
+          node -c src/server.js
 
   frontend-checks:
     name: Frontend - Install, lint, build
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          lfs: false
-          submodules: false
-          persist-credentials: false
-          clean: false
-          set-safe-directory: true
-
-      - name: Mark workspace as safe (git)
+      - name: Clone EasyBuy source (no submodules)
         shell: bash
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --no-recurse-submodules "$EASYBUY_REPO" easybuy
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          # Keep CI stable first; enable caching after paths are verified
-          cache: ''
 
-      - name: Run frontend checks (auto-detect project path)
-        shell: bash
+      - name: Frontend lint & build
+        working-directory: easybuy/EasyBuy/Frontend
         env:
           NEXT_PUBLIC_API_URL: https://group-9-1swe-web-project-ss2026-backend.onrender.com/api
           NEXT_PUBLIC_SOCKET_URL: https://group-9-1swe-web-project-ss2026-backend.onrender.com
           DOCKER_BUILD: 1
         run: |
           set -euo pipefail
-          projects=(
-            "Group_9/EasyBuy"
-            "Group_9_1SWE_WEB_Project_SS2026/EasyBuy"
-          )
-
-          found_any=0
-          for project in "${projects[@]}"; do
-            if [[ -f "${project}/Frontend/package.json" ]]; then
-              found_any=1
-              echo "== Frontend checks: ${project}"
-              pushd "${project}/Frontend" >/dev/null
-              npm ci
-              npm run lint || true
-              npm run build
-              popd >/dev/null
-            else
-              echo "Skipping frontend: ${project} (Frontend/package.json not found)"
-            fi
-          done
-
-          if [[ "${found_any}" -eq 0 ]]; then
-            echo "No EasyBuy frontend found in expected paths."
-            echo "Expected one of:"
-            printf ' - %s\n' "${projects[@]}"
-            exit 1
-          fi
-
+          npm ci
+          npm run lint || true
+          npm run build
