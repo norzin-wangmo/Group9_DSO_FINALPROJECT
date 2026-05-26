@@ -12,19 +12,6 @@ jobs:
   backend-checks:
     name: Backend - Install & Prisma validate
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Group_9
-            project: Group_9/EasyBuy
-            lock: Group_9/EasyBuy/Backend/package-lock.json
-          - name: Group_9_1SWE_WEB_Project_SS2026
-            project: Group_9_1SWE_WEB_Project_SS2026/EasyBuy
-            lock: Group_9_1SWE_WEB_Project_SS2026/EasyBuy/Backend/package-lock.json
-    defaults:
-      run:
-        working-directory: ${{ matrix.project }}/Backend
 
     steps:
       - name: Checkout
@@ -35,36 +22,43 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: ${{ matrix.lock }}
+          cache-dependency-path: '**/package-lock.json'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Run backend checks (auto-detect project path)
+        shell: bash
+        run: |
+          set -euo pipefail
+          projects=(
+            "Group_9/EasyBuy"
+            "Group_9_1SWE_WEB_Project_SS2026/EasyBuy"
+          )
 
-      - name: Prisma validate
-        run: npx prisma validate
+          found_any=0
+          for project in "${projects[@]}"; do
+            if [[ -f "${project}/Backend/package.json" ]]; then
+              found_any=1
+              echo "== Backend checks: ${project}"
+              pushd "${project}/Backend" >/dev/null
+              npm ci
+              npx prisma validate
+              npx prisma generate
+              node -c src/server.js
+              popd >/dev/null
+            else
+              echo "Skipping backend: ${project} (Backend/package.json not found)"
+            fi
+          done
 
-      - name: Prisma generate
-        run: npx prisma generate
-
-      - name: Node syntax check
-        run: node -c src/server.js
+          if [[ "${found_any}" -eq 0 ]]; then
+            echo "No EasyBuy backend found in expected paths."
+            echo "Expected one of:"
+            printf ' - %s\n' "${projects[@]}"
+            exit 1
+          fi
 
   frontend-checks:
     name: Frontend - Install, lint, build
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Group_9
-            project: Group_9/EasyBuy
-            lock: Group_9/EasyBuy/Frontend/package-lock.json
-          - name: Group_9_1SWE_WEB_Project_SS2026
-            project: Group_9_1SWE_WEB_Project_SS2026/EasyBuy
-            lock: Group_9_1SWE_WEB_Project_SS2026/EasyBuy/Frontend/package-lock.json
-    defaults:
-      run:
-        working-directory: ${{ matrix.project }}/Frontend
 
     steps:
       - name: Checkout
@@ -75,19 +69,40 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: ${{ matrix.lock }}
+          cache-dependency-path: '**/package-lock.json'
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint (non-blocking)
-        run: npm run lint
-        continue-on-error: true
-
-      - name: Build
-        run: npm run build
+      - name: Run frontend checks (auto-detect project path)
+        shell: bash
         env:
           NEXT_PUBLIC_API_URL: https://group-9-1swe-web-project-ss2026-backend.onrender.com/api
           NEXT_PUBLIC_SOCKET_URL: https://group-9-1swe-web-project-ss2026-backend.onrender.com
           DOCKER_BUILD: 1
+        run: |
+          set -euo pipefail
+          projects=(
+            "Group_9/EasyBuy"
+            "Group_9_1SWE_WEB_Project_SS2026/EasyBuy"
+          )
+
+          found_any=0
+          for project in "${projects[@]}"; do
+            if [[ -f "${project}/Frontend/package.json" ]]; then
+              found_any=1
+              echo "== Frontend checks: ${project}"
+              pushd "${project}/Frontend" >/dev/null
+              npm ci
+              npm run lint || true
+              npm run build
+              popd >/dev/null
+            else
+              echo "Skipping frontend: ${project} (Frontend/package.json not found)"
+            fi
+          done
+
+          if [[ "${found_any}" -eq 0 ]]; then
+            echo "No EasyBuy frontend found in expected paths."
+            echo "Expected one of:"
+            printf ' - %s\n' "${projects[@]}"
+            exit 1
+          fi
 
